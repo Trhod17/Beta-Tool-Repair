@@ -1,0 +1,70 @@
+--- net/minecraft/src/CraftingManager.java
++++ net/minecraft/src/CraftingManager.java
+@@ -157,15 +157,59 @@
+ 		this.recipes.add(new ShapelessRecipes(var1, var3));
+ 	}
+ 
++//	public ItemStack findMatchingRecipe(InventoryCrafting var1) {
++//		for(int var2 = 0; var2 < this.recipes.size(); ++var2) {
++//			IRecipe var3 = (IRecipe)this.recipes.get(var2);
++//			if(var3.func_21134_a(var1)) {
++//				return var3.func_21136_b(var1);
++//			}
++//		}
++//
++//		return null;
++//	}
++
+ 	public ItemStack findMatchingRecipe(InventoryCrafting var1) {
+-		for(int var2 = 0; var2 < this.recipes.size(); ++var2) {
+-			IRecipe var3 = (IRecipe)this.recipes.get(var2);
+-			if(var3.func_21134_a(var1)) {
+-				return var3.func_21136_b(var1);
+-			}
+-		}
+-
+-		return null;
++		int var2 = 0;
++		ItemStack var3 = null;
++		ItemStack var4 = null;
++
++		int var5;
++		for(var5 = 0; var5 < var1.getSizeInventory(); ++var5) {
++			ItemStack var6 = var1.getStackInSlot(var5);
++			if(var6 != null) {
++				if(var2 == 0) {
++					var3 = var6;
++				}
++
++				if(var2 == 1) {
++					var4 = var6;
++				}
++
++				++var2;
++			}
++		}
++
++		if(var2 == 2 && var3.itemID == var4.itemID && var3.stackSize == 1 && var4.stackSize == 1 && Item.itemsList[var3.itemID].func_25005_e()) {
++			Item var10 = Item.itemsList[var3.itemID];
++			int var12 = var10.getMaxDamage() - var3.getItemDamageForDisplay();
++			int var7 = var10.getMaxDamage() - var4.getItemDamageForDisplay();
++			int var8 = var12 + var7 + var10.getMaxDamage() * 10 / 100;
++			int var9 = var10.getMaxDamage() - var8;
++			if(var9 < 0) {
++				var9 = 0;
++			}
++
++			return new ItemStack(var3.itemID, 1, var9);
++		} else {
++			for(var5 = 0; var5 < this.recipes.size(); ++var5) {
++				IRecipe var11 = (IRecipe)this.recipes.get(var5);
++				if(var11.func_21134_a(var1)) {
++					return var11.func_21136_b(var1);
++				}
++			}
++
++			return null;
++		}
+ 	}
+ 
+ 	public List getRecipeList() {
