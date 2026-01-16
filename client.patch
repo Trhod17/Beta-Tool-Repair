@@ -1,252 +1,70 @@
---- net/minecraft/src/ItemFood.java
-+++ net/minecraft/src/ItemFood.java
-@@ -8,12 +8,15 @@
- 		super(var1);
- 		this.healAmount = var2;
- 		this.isWolfsFavoriteMeat = var3;
--		this.maxStackSize = 1;
-+		this.maxStackSize = 8;
- 	}
- 
- 	public ItemStack onItemRightClick(ItemStack var1, World var2, EntityPlayer var3) {
--		--var1.stackSize;
--		var3.heal(this.healAmount);
-+		if (var3.health < 20) {
-+			--var1.stackSize;
-+			var3.heal(this.healAmount);
-+			return var1;
-+		}
- 		return var1;
- 	}
- 
---- net/minecraft/src/RecipesFood.java
-+++ net/minecraft/src/RecipesFood.java
-@@ -2,8 +2,7 @@
- 
- public class RecipesFood {
- 	public void addRecipes(CraftingManager var1) {
--		var1.addRecipe(new ItemStack(Item.bowlSoup), new Object[]{"Y", "X", "#", Character.valueOf('X'), Block.mushroomBrown, Character.valueOf('Y'), Block.mushroomRed, Character.valueOf('#'), Item.bowlEmpty});
--		var1.addRecipe(new ItemStack(Item.bowlSoup), new Object[]{"Y", "X", "#", Character.valueOf('X'), Block.mushroomRed, Character.valueOf('Y'), Block.mushroomBrown, Character.valueOf('#'), Item.bowlEmpty});
-+		var1.addShapelessRecipe(new ItemStack(Item.bowlSoup), new Object[]{Block.mushroomBrown, Block.mushroomRed, Item.bowlEmpty});
- 		var1.addRecipe(new ItemStack(Item.cookie, 8), new Object[]{"#X#", Character.valueOf('X'), new ItemStack(Item.dyePowder, 1, 3), Character.valueOf('#'), Item.wheat});
- 	}
- }
---- net/minecraft/src/EntityPig.java
-+++ net/minecraft/src/EntityPig.java
-@@ -46,6 +46,7 @@
- 		return this.fire > 0 ? Item.porkCooked.shiftedIndex : Item.porkRaw.shiftedIndex;
- 	}
- 
-+
- 	public boolean getSaddled() {
- 		return (this.dataWatcher.getWatchableObjectByte(16) & 1) != 0;
- 	}
---- net/minecraft/src/BlockOre.java
-+++ net/minecraft/src/BlockOre.java
-@@ -12,7 +12,18 @@
- 	}
- 
- 	public int quantityDropped(Random var1) {
--		return this.blockID == Block.oreLapis.blockID ? 4 + var1.nextInt(5) : 1;
-+		if (this.blockID == Block.oreLapis.blockID) {
-+			return 4 + var1.nextInt(5);
-+		}
-+
-+		if (this.blockID == Block.oreCoal.blockID) {
-+			return 1 + var1.nextInt(3);
-+		}
-+
-+		if (this.blockID == Block.oreDiamond.blockID) {
-+			return 1 + var1.nextInt(2);
-+		}
-+		return 1;
- 	}
- 
- 	protected int damageDropped(int var1) {
---- net/minecraft/src/EntityCow.java
-+++ net/minecraft/src/EntityCow.java
-@@ -35,6 +35,15 @@
- 		return Item.leather.shiftedIndex;
- 	}
- 
-+	protected void dropFewItems() {
-+		int var1 = this.rand.nextInt(3) + 1;
-+
-+		for(int var2 = 0; var2 < var1; ++var2) {
-+			this.entityDropItem(new ItemStack(Item.leather, 1), 0.0F);
-+		}
-+
-+	}
-+
- 	public boolean interact(EntityPlayer var1) {
- 		ItemStack var2 = var1.inventory.getCurrentItem();
- 		if(var2 != null && var2.itemID == Item.bucketEmpty.shiftedIndex) {
 --- net/minecraft/src/CraftingManager.java
 +++ net/minecraft/src/CraftingManager.java
-@@ -31,15 +31,19 @@
- 		this.addRecipe(new ItemStack(Block.blockClay, 1), new Object[]{"##", "##", Character.valueOf('#'), Item.clay});
- 		this.addRecipe(new ItemStack(Block.brick, 1), new Object[]{"##", "##", Character.valueOf('#'), Item.brick});
- 		this.addRecipe(new ItemStack(Block.glowStone, 1), new Object[]{"##", "##", Character.valueOf('#'), Item.lightStoneDust});
--		this.addRecipe(new ItemStack(Block.cloth, 1), new Object[]{"##", "##", Character.valueOf('#'), Item.silk});
-+		//this.addRecipe(new ItemStack(Block.cloth, 1), new Object[]{"##", "##", Character.valueOf('#'), Item.silk});
-+		this.addRecipe(new ItemStack(Block.cloth, 1), "SS", "SS", 'S', new ItemStack(Item.silk, 1));
-+		for (int i = 0; i < 16; i++) {
-+			this.addRecipe(new ItemStack(Block.cloth, 1, i), new ItemStack(Block.cloth, 1, -1), new ItemStack(Item.dyePowder, 1, 15 - i));
+@@ -157,15 +157,59 @@
+ 		this.recipes.add(new ShapelessRecipes(var1, var3));
+ 	}
+ 
++//	public ItemStack findMatchingRecipe(InventoryCrafting var1) {
++//		for(int var2 = 0; var2 < this.recipes.size(); ++var2) {
++//			IRecipe var3 = (IRecipe)this.recipes.get(var2);
++//			if(var3.matches(var1)) {
++//				return var3.getCraftingResult(var1);
++//			}
++//		}
++//
++//		return null;
++//	}
++
+ 	public ItemStack findMatchingRecipe(InventoryCrafting var1) {
+-		for(int var2 = 0; var2 < this.recipes.size(); ++var2) {
+-			IRecipe var3 = (IRecipe)this.recipes.get(var2);
+-			if(var3.matches(var1)) {
+-				return var3.getCraftingResult(var1);
+-			}
+-		}
+-
+-		return null;
++		int var2 = 0;
++		ItemStack var3 = null;
++		ItemStack var4 = null;
++
++		int var5;
++		for(var5 = 0; var5 < var1.getSizeInventory(); ++var5) {
++			ItemStack var6 = var1.getStackInSlot(var5);
++			if(var6 != null) {
++				if(var2 == 0) {
++					var3 = var6;
++				}
++
++				if(var2 == 1) {
++					var4 = var6;
++				}
++
++				++var2;
++			}
 +		}
- 		this.addRecipe(new ItemStack(Block.tnt, 1), new Object[]{"X#X", "#X#", "X#X", Character.valueOf('X'), Item.gunpowder, Character.valueOf('#'), Block.sand});
--		this.addRecipe(new ItemStack(Block.stairSingle, 3, 3), new Object[]{"###", Character.valueOf('#'), Block.cobblestone});
--		this.addRecipe(new ItemStack(Block.stairSingle, 3, 0), new Object[]{"###", Character.valueOf('#'), Block.stone});
--		this.addRecipe(new ItemStack(Block.stairSingle, 3, 1), new Object[]{"###", Character.valueOf('#'), Block.sandStone});
--		this.addRecipe(new ItemStack(Block.stairSingle, 3, 2), new Object[]{"###", Character.valueOf('#'), Block.planks});
-+		this.addRecipe(new ItemStack(Block.stairSingle, 6, 3), new Object[]{"###", Character.valueOf('#'), Block.cobblestone});
-+		this.addRecipe(new ItemStack(Block.stairSingle, 6, 0), new Object[]{"###", Character.valueOf('#'), Block.stone});
-+		this.addRecipe(new ItemStack(Block.stairSingle, 6, 1), new Object[]{"###", Character.valueOf('#'), Block.sandStone});
-+		this.addRecipe(new ItemStack(Block.stairSingle, 6, 2), new Object[]{"###", Character.valueOf('#'), Block.planks});
- 		this.addRecipe(new ItemStack(Block.ladder, 2), new Object[]{"# #", "###", "# #", Character.valueOf('#'), Item.stick});
--		this.addRecipe(new ItemStack(Item.doorWood, 1), new Object[]{"##", "##", "##", Character.valueOf('#'), Block.planks});
--		this.addRecipe(new ItemStack(Block.trapdoor, 2), new Object[]{"###", "###", Character.valueOf('#'), Block.planks});
-+		this.addRecipe(new ItemStack(Item.doorWood, 2), new Object[]{"##", "##", "##", Character.valueOf('#'), Block.planks});
-+		this.addRecipe(new ItemStack(Block.trapdoor, 12), new Object[]{"###", "###", Character.valueOf('#'), Block.planks});
- 		this.addRecipe(new ItemStack(Item.doorSteel, 1), new Object[]{"##", "##", "##", Character.valueOf('#'), Item.ingotIron});
- 		this.addRecipe(new ItemStack(Item.sign, 1), new Object[]{"###", "###", " X ", Character.valueOf('#'), Block.planks, Character.valueOf('X'), Item.stick});
- 		this.addRecipe(new ItemStack(Item.cake, 1), new Object[]{"AAA", "BEB", "CCC", Character.valueOf('A'), Item.bucketMilk, Character.valueOf('B'), Item.sugar, Character.valueOf('C'), Item.wheat, Character.valueOf('E'), Item.egg});
-@@ -54,15 +58,15 @@
- 		this.addRecipe(new ItemStack(Block.railDetector, 6), new Object[]{"X X", "X#X", "XRX", Character.valueOf('X'), Item.ingotIron, Character.valueOf('R'), Item.redstone, Character.valueOf('#'), Block.pressurePlateStone});
- 		this.addRecipe(new ItemStack(Item.minecartEmpty, 1), new Object[]{"# #", "###", Character.valueOf('#'), Item.ingotIron});
- 		this.addRecipe(new ItemStack(Block.pumpkinLantern, 1), new Object[]{"A", "B", Character.valueOf('A'), Block.pumpkin, Character.valueOf('B'), Block.torchWood});
--		this.addRecipe(new ItemStack(Item.minecartCrate, 1), new Object[]{"A", "B", Character.valueOf('A'), Block.chest, Character.valueOf('B'), Item.minecartEmpty});
--		this.addRecipe(new ItemStack(Item.minecartPowered, 1), new Object[]{"A", "B", Character.valueOf('A'), Block.stoneOvenIdle, Character.valueOf('B'), Item.minecartEmpty});
-+		this.addShapelessRecipe(new ItemStack(Item.minecartCrate, 1), new Object[]{Block.chest, Item.minecartEmpty});
-+		this.addShapelessRecipe(new ItemStack(Item.minecartPowered, 1), new Object[]{Block.stoneOvenIdle, Item.minecartEmpty});
- 		this.addRecipe(new ItemStack(Item.boat, 1), new Object[]{"# #", "###", Character.valueOf('#'), Block.planks});
- 		this.addRecipe(new ItemStack(Item.bucketEmpty, 1), new Object[]{"# #", " # ", Character.valueOf('#'), Item.ingotIron});
--		this.addRecipe(new ItemStack(Item.flintAndSteel, 1), new Object[]{"A ", " B", Character.valueOf('A'), Item.ingotIron, Character.valueOf('B'), Item.flint});
-+		this.addShapelessRecipe(new ItemStack(Item.flintAndSteel, 1), new Object[]{Item.ingotIron, Item.flint});
- 		this.addRecipe(new ItemStack(Item.bread, 1), new Object[]{"###", Character.valueOf('#'), Item.wheat});
--		this.addRecipe(new ItemStack(Block.stairCompactPlanks, 4), new Object[]{"#  ", "## ", "###", Character.valueOf('#'), Block.planks});
-+		this.addRecipe(new ItemStack(Block.stairCompactPlanks, 8), new Object[]{"#  ", "## ", "###", Character.valueOf('#'), Block.planks});
- 		this.addRecipe(new ItemStack(Item.fishingRod, 1), new Object[]{"  #", " #X", "# X", Character.valueOf('#'), Item.stick, Character.valueOf('X'), Item.silk});
--		this.addRecipe(new ItemStack(Block.stairCompactCobblestone, 4), new Object[]{"#  ", "## ", "###", Character.valueOf('#'), Block.cobblestone});
-+		this.addRecipe(new ItemStack(Block.stairCompactCobblestone, 8), new Object[]{"#  ", "## ", "###", Character.valueOf('#'), Block.cobblestone});
- 		this.addRecipe(new ItemStack(Item.painting, 1), new Object[]{"###", "#X#", "###", Character.valueOf('#'), Item.stick, Character.valueOf('X'), Block.cloth});
- 		this.addRecipe(new ItemStack(Item.appleGold, 1), new Object[]{"###", "#X#", "###", Character.valueOf('#'), Block.blockGold, Character.valueOf('X'), Item.appleRed});
- 		this.addRecipe(new ItemStack(Block.lever, 1), new Object[]{"X", "#", Character.valueOf('#'), Block.cobblestone, Character.valueOf('X'), Item.stick});
-@@ -71,13 +75,17 @@
- 		this.addRecipe(new ItemStack(Item.pocketSundial, 1), new Object[]{" # ", "#X#", " # ", Character.valueOf('#'), Item.ingotGold, Character.valueOf('X'), Item.redstone});
- 		this.addRecipe(new ItemStack(Item.compass, 1), new Object[]{" # ", "#X#", " # ", Character.valueOf('#'), Item.ingotIron, Character.valueOf('X'), Item.redstone});
- 		this.addRecipe(new ItemStack(Item.mapItem, 1), new Object[]{"###", "#X#", "###", Character.valueOf('#'), Item.paper, Character.valueOf('X'), Item.compass});
--		this.addRecipe(new ItemStack(Block.button, 1), new Object[]{"#", "#", Character.valueOf('#'), Block.stone});
-+		this.addShapelessRecipe(new ItemStack(Block.button, 1), new Object[]{Block.stone});
- 		this.addRecipe(new ItemStack(Block.pressurePlateStone, 1), new Object[]{"##", Character.valueOf('#'), Block.stone});
- 		this.addRecipe(new ItemStack(Block.pressurePlatePlanks, 1), new Object[]{"##", Character.valueOf('#'), Block.planks});
- 		this.addRecipe(new ItemStack(Block.dispenser, 1), new Object[]{"###", "#X#", "#R#", Character.valueOf('#'), Block.cobblestone, Character.valueOf('X'), Item.bow, Character.valueOf('R'), Item.redstone});
- 		this.addRecipe(new ItemStack(Block.pistonBase, 1), new Object[]{"TTT", "#X#", "#R#", Character.valueOf('#'), Block.cobblestone, Character.valueOf('X'), Item.ingotIron, Character.valueOf('R'), Item.redstone, Character.valueOf('T'), Block.planks});
- 		this.addRecipe(new ItemStack(Block.pistonStickyBase, 1), new Object[]{"S", "P", Character.valueOf('S'), Item.slimeBall, Character.valueOf('P'), Block.pistonBase});
- 		this.addRecipe(new ItemStack(Item.bed, 1), new Object[]{"###", "XXX", Character.valueOf('#'), Block.cloth, Character.valueOf('X'), Block.planks});
-+		this.addRecipe(new ItemStack(Block.chest, 4), new Object[]{"###", "# #", "###", Character.valueOf('#'), Block.wood});
-+		this.addRecipe(new ItemStack(Item.silk, 4), new Object[]{"#", Character.valueOf('#'), Block.cloth});
-+		this.addRecipe(new ItemStack(Block.fire, 3), new Object[]{"#Z", Character.valueOf('#'), Item.flintAndSteel, Character.valueOf('Z'), Block.wood});
-+		this.addShapelessRecipe(new ItemStack(Block.grass, 1), new ItemStack(Block.dirt, 1), new ItemStack(Item.seeds, 1));
- 		Collections.sort(this.recipes, new RecipeSorter(this));
- 		System.out.println(this.recipes.size() + " recipes");
- 	}
---- net/minecraft/src/FurnaceRecipes.java
-+++ net/minecraft/src/FurnaceRecipes.java
-@@ -12,9 +12,9 @@
- 	}
- 
- 	private FurnaceRecipes() {
--		this.addSmelting(Block.oreIron.blockID, new ItemStack(Item.ingotIron));
--		this.addSmelting(Block.oreGold.blockID, new ItemStack(Item.ingotGold));
--		this.addSmelting(Block.oreDiamond.blockID, new ItemStack(Item.diamond));
-+		this.addSmelting(Block.oreIron.blockID, new ItemStack(Item.ingotIron, 2));
-+		this.addSmelting(Block.oreGold.blockID, new ItemStack(Item.ingotGold, 2));
-+		this.addSmelting(Block.oreDiamond.blockID, new ItemStack(Item.diamond, 2));
- 		this.addSmelting(Block.sand.blockID, new ItemStack(Block.glass));
- 		this.addSmelting(Item.porkRaw.shiftedIndex, new ItemStack(Item.porkCooked));
- 		this.addSmelting(Item.fishRaw.shiftedIndex, new ItemStack(Item.fishCooked));
-@@ -22,6 +22,7 @@
- 		this.addSmelting(Item.clay.shiftedIndex, new ItemStack(Item.brick));
- 		this.addSmelting(Block.cactus.blockID, new ItemStack(Item.dyePowder, 1, 2));
- 		this.addSmelting(Block.wood.blockID, new ItemStack(Item.coal, 1, 1));
-+		this.addSmelting(Block.blockClay.blockID, new ItemStack(Block.brick));
- 	}
- 
- 	public void addSmelting(int var1, ItemStack var2) {
---- net/minecraft/src/ItemAxe.java
-+++ net/minecraft/src/ItemAxe.java
-@@ -1,7 +1,8 @@
- package net.minecraft.src;
- 
- public class ItemAxe extends ItemTool {
--	private static Block[] blocksEffectiveAgainst = new Block[]{Block.planks, Block.bookShelf, Block.wood, Block.chest};
-+	private static Block[] blocksEffectiveAgainst = new Block[]{Block.planks, Block.bookShelf, Block.wood, Block.chest,
-+			Block.workbench, Block.stairCompactPlanks, Block.doorWood, Block.signPost, Block.signWall, Block.fence, Block.cloth	};
- 
- 	protected ItemAxe(int var1, EnumToolMaterial var2) {
- 		super(var1, 3, var2, blocksEffectiveAgainst);
---- net/minecraft/src/ItemPickaxe.java
-+++ net/minecraft/src/ItemPickaxe.java
-@@ -1,7 +1,10 @@
- package net.minecraft.src;
- 
- public class ItemPickaxe extends ItemTool {
--	private static Block[] blocksEffectiveAgainst = new Block[]{Block.cobblestone, Block.stairDouble, Block.stairSingle, Block.stone, Block.sandStone, Block.cobblestoneMossy, Block.oreIron, Block.blockSteel, Block.oreCoal, Block.blockGold, Block.oreGold, Block.oreDiamond, Block.blockDiamond, Block.ice, Block.netherrack, Block.oreLapis, Block.blockLapis};
-+	private static Block[] blocksEffectiveAgainst = new Block[]{Block.cobblestone, Block.stairDouble, Block.stairSingle, Block.stone, Block.sandStone,
-+			Block.cobblestoneMossy, Block.oreIron, Block.blockSteel, Block.oreCoal, Block.blockGold, Block.oreGold, Block.oreDiamond, Block.blockDiamond,
-+			Block.ice, Block.netherrack, Block.oreLapis, Block.blockLapis, Block.stoneOvenIdle, Block.stoneOvenActive, Block.stairCompactCobblestone,
-+			Block.stairSingle, Block.stairDouble, Block.oreRedstone, Block.oreRedstoneGlowing};
- 
- 	protected ItemPickaxe(int var1, EnumToolMaterial var2) {
- 		super(var1, 2, var2, blocksEffectiveAgainst);
---- net/minecraft/src/BlockLeaves.java
-+++ net/minecraft/src/BlockLeaves.java
-@@ -152,6 +152,24 @@
- 		return var1.nextInt(20) == 0 ? 1 : 0;
- 	}
- 
-+	@Override
-+	public void dropBlockAsItemWithChance(World var1, int var2, int var3, int var4, int var5, float var6) {
 +
-+			byte var8 = 20;
-+			if((var5 & 3) == 3) {
-+				var8 = 40;
++		if(var2 == 2 && var3.itemID == var4.itemID && var3.stackSize == 1 && var4.stackSize == 1 && Item.itemsList[var3.itemID].isDamagable()) {
++			Item var10 = Item.itemsList[var3.itemID];
++			int var12 = var10.getMaxDamage() - var3.getItemDamageForDisplay();
++			int var7 = var10.getMaxDamage() - var4.getItemDamageForDisplay();
++			int var8 = var12 + var7 + var10.getMaxDamage() * 10 / 100;
++			int var9 = var10.getMaxDamage() - var8;
++			if(var9 < 0) {
++				var9 = 0;
 +			}
 +
-+			if(var1.rand.nextInt(var8) == 0) {
-+				int var9 = this.idDropped(var5, var1.rand);
-+				this.dropBlockAsItem_do(var1, var2, var3, var4, new ItemStack(var9, 1, this.damageDropped(var5)));
++			return new ItemStack(var3.itemID, 1, var9);
++		} else {
++			for(var5 = 0; var5 < this.recipes.size(); ++var5) {
++				IRecipe var11 = (IRecipe)this.recipes.get(var5);
++				if(var11.matches(var1)) {
++					return var11.getCraftingResult(var1);
++				}
 +			}
 +
-+			if((var5 & 3) == 0 && var1.rand.nextInt(200) == 0) {
-+				this.dropBlockAsItem_do(var1, var2, var3, var4, new ItemStack(Item.appleRed, 1, 0));
-+			}
-+	}
-+
- 	public int idDropped(int var1, Random var2) {
- 		return Block.sapling.blockID;
- 	}
---- net/minecraft/src/GameSettings.java
-+++ net/minecraft/src/GameSettings.java
-@@ -18,7 +18,7 @@
- 	public float mouseSensitivity = 0.5F;
- 	public boolean invertMouse = false;
- 	public int renderDistance = 0;
--	public boolean viewBobbing = true;
-+	public boolean viewBobbing = false;
- 	public boolean anaglyph = false;
- 	public boolean advancedOpengl = false;
- 	public int limitFramerate = 1;
---- net/minecraft/src/BlockGlass.java
-+++ net/minecraft/src/BlockGlass.java
-@@ -7,8 +7,8 @@
- 		super(var1, var2, var3, var4);
++			return null;
++		}
  	}
  
--	public int quantityDropped(Random var1) {
--		return 0;
-+	public int idDropped(int var1, Random var2) {
-+			return Block.glass.blockID;
- 	}
- 
- 	public int getRenderBlockPass() {
+ 	public List getRecipeList() {
